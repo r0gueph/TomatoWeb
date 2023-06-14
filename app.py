@@ -5,7 +5,8 @@
 # from statsmodels.tsa.arima.model import ARIMA
 # from sklearn.metrics import mean_squared_error
 # import numpy as np
-
+from flask import *
+import pyrebase
 # def load_data():
 #     # Step 1: Load the data
 #     data = pd.read_csv('AreaHarvested.csv')
@@ -124,15 +125,6 @@
 
 #     return prediction_df
 
-
-from flask import Flask, render_template, request
-
-app = Flask(__name__,static_folder='static')
-
-@app.route('/')
-def home():
-    return render_template('index.html')
-
 # @app.route('/load_data')
 # def load_data_endpoint():
 #     data = load_data()
@@ -158,5 +150,50 @@ def home():
 #     }
 #      return render_template('index.html', forecast_results=forecast_results)
 
+from flask import Flask, render_template, request
+
+config = {
+    'apiKey': "AIzaSyBixtA4v5mvxKvaTU61iq9Fr2Ln2OWlf3o",
+    'authDomain': "tomatocare-78e23.firebaseapp.com",
+    'projectId': "tomatocare-78e23",
+    'storageBucket': "tomatocare-78e23.appspot.com",
+    'messagingSenderId': "437959910172",
+    'appId': "1:437959910172:web:dab8c80225929289dd90d9",
+    'databaseURL' : "",
+  }
+
+firebase = pyrebase.initialize_app(config)
+auth = firebase.auth()
+
+app.secret_key='secret'
+
+app = Flask(__name__,static_folder='static')
+
+@app.route('/',methods=['POST','GET'])
+def index():
+    if request.method == 'POST':
+        email = request.form.get('email')
+        password = request.form.get('password')
+        try:
+            user = auth.sign_in_with_email_and_password(email,password)
+            session['user'] = email
+        except:
+            return 'Failed to login' 
+    return render_template('index.html')
+
+@app.route('/logout')
+def logout():
+    session.pop('user')
+    return redirect('/')
+
+@app.route('/login')
+def login():
+    return render_template('login.html')
+
+@app.route('/signup')
+def signup():
+    return render_template('signup.html')
+
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.debug='true'
+    app.run(port=5000)
