@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -106,7 +107,7 @@ h1:hover {
   font-size: 12px;
 }
 
-.login-box form a {
+.login-box form button {
   position: relative;
   display: inline-block;
   padding: 10px 20px;
@@ -117,10 +118,12 @@ h1:hover {
   overflow: hidden;
   transition: .5s;
   margin-top: 40px;
-  letter-spacing: 4px
+  letter-spacing: 4px;
+  background-color: transparent;
+  border: none;
 }
 
-.login-box a:hover {
+.login-box button:hover {
   background: #03e9f4;
   color: #fff;
   border-radius: 5px;
@@ -130,12 +133,12 @@ h1:hover {
               0 0 100px #03e9f4;
 }
 
-.login-box a span {
+.login-box button span {
   position: absolute;
   display: block;
 }
 
-.login-box a span:nth-child(1) {
+.login-box button span:nth-child(1) {
   top: 0;
   left: -100%;
   width: 100%;
@@ -153,7 +156,7 @@ h1:hover {
   }
 }
 
-.login-box a span:nth-child(2) {
+.login-box button span:nth-child(2) {
   top: -100%;
   right: 0;
   width: 2px;
@@ -172,7 +175,7 @@ h1:hover {
   }
 }
 
-.login-box a span:nth-child(3) {
+.login-box button span:nth-child(3) {
   bottom: 0;
   right: -100%;
   width: 100%;
@@ -191,7 +194,7 @@ h1:hover {
   }
 }
 
-.login-box a span:nth-child(4) {
+.login-box button span:nth-child(4) {
   bottom: -100%;
   left: 0;
   width: 2px;
@@ -215,7 +218,7 @@ h1:hover {
 </head>
 
 <body>
-    <h1 class="pomotodoro">
+   <h1 class="pomotodoro">
         <svg class="logo z-depth-3" width="100px" height="100px" viewBox="0 0 104 104">
             <g transform="translate(20)">
                 <path d="m58.982 34.35c0 16.287-13.2 29.489-29.491 29.489-16.289.0001-29.491-13.201-29.491-29.489 0-16.292 13.202-17.909 29.491-17.909 16.291 0 29.491 1.617 29.491 17.909" fill="#be202e" class="red-shadow"></path>
@@ -243,8 +246,15 @@ h1:hover {
             <input type="password" name="password">
             <label>Password</label>
           </div>
-          <input type='submit'>
+          <button>
+            <span></span>
+            <span></span>
+            <span></span>
+            <span></span>
+            Submit
+          </button>
         </form>
       </div>
+      
 </body>
 </html>

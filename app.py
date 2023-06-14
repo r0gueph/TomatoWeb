@@ -150,7 +150,9 @@ import pyrebase
 #     }
 #      return render_template('index.html', forecast_results=forecast_results)
 
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, session, redirect
+
+app = Flask(__name__,static_folder='static')
 
 config = {
     'apiKey': "AIzaSyBixtA4v5mvxKvaTU61iq9Fr2Ln2OWlf3o",
@@ -167,33 +169,54 @@ auth = firebase.auth()
 
 app.secret_key='secret'
 
-app = Flask(__name__,static_folder='static')
 
 @app.route('/',methods=['POST','GET'])
-def index():
+def login():
+    if "user" in session:
+        return redirect('/index')
+        
     if request.method == 'POST':
         email = request.form.get('email')
         password = request.form.get('password')
         try:
-            user = auth.sign_in_with_email_and_password(email,password)
+            user = auth.sign_in_with_email_and_password(email, password)
             session['user'] = email
+            return redirect('/index')
         except:
             return 'Failed to login' 
-    return render_template('index.html')
+    return render_template('login.html')
 
 @app.route('/logout')
 def logout():
     session.pop('user')
-    return redirect('/')
+    return redirect('/login')
 
 @app.route('/login')
-def login():
+def user_login():
     return render_template('login.html')
 
-@app.route('/signup')
+@app.route('/index')
+def index():
+    if "user" not in session:
+        return redirect('/login')
+    return render_template('index.html')
+
+@app.route('/signup', methods=['GET', 'POST'])
 def signup():
+    if request.method == 'POST':
+        try:
+            email = request.form.get('email')
+            password = request.form.get('password')
+            user = auth.create_user_with_email_and_password(email, password)
+            auth.send_email_verification(user['idToken'])
+            session['user'] = user
+            return redirect('/')
+        except Exception as e:
+            error = str(e)
+            return render_template('signup.html', error=error)
     return render_template('signup.html')
 
+
 if __name__ == '__main__':
-    app.debug='true'
-    app.run(port=5000)
+    app.run(debug=True, host='localhost', port=5000)
+
