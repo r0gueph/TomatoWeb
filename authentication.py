@@ -21,3 +21,4 @@ user = auth.sign_in_with_email_and_password(email, password)
 #print(info)
 
 auth.send_password_reset_email(email)
+#updated
