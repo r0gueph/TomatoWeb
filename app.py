@@ -1,140 +1,418 @@
-# import pandas as pd
-# import matplotlib.pyplot as plt
-# from statsmodels.tsa.stattools import adfuller
-# from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
-# from statsmodels.tsa.arima.model import ARIMA
-# from sklearn.metrics import mean_squared_error
-# import numpy as np
-from flask import *
+import pickle
+
+import firebase_admin
+import numpy as np
+import pandas as pd
 import pyrebase
-# def load_data():
-#     # Step 1: Load the data
-#     data = pd.read_csv('AreaHarvested.csv')
-#     # Convert 'Year' column to string type
-#     data['Year'] = data['Year'].astype(str)
-#     # Create a new column combining 'Year' and 'TimePeriod'
-#     data['YearQuarter'] = data['Year'] + '-' + data['TimePeriod']
-#     return data
+from firebase_admin import auth, credentials, firestore
+from flask import Flask, redirect, render_template, request, session
+from statsmodels.tsa.arima.model import ARIMA
 
-# def plot_time_series(data):
-#     # Plot the time series data
-#     plt.figure(figsize=(12, 6))
-#     plt.plot(data['YearQuarter'], data['AreaHarvested'])
-#     plt.xlabel('Year')
-#     plt.ylabel('Area Harvested')
-#     plt.title('Quarterly Area Harvested 2012-2022')
-#     plt.xticks(rotation=90)  # Rotate x-axis labels for better visibility
-#     plt.show()
+app = Flask(__name__)
+app.secret_key = "secret"
 
-# # Take the logarithm of the 'AreaHarvested' column
-# def take_log(data):
-#     data['AreaHarvested_log'] = np.log(data['AreaHarvested'])
-#     return data
+# Load the ARIMA models
+with open("./ARIMA/ARIMA_VP.pkl", "rb") as f:
+    model_vp = pickle.load(f)
 
-# # Plot the logarithm of the time series data
-# def plot_log_time_series(data):
-#     plt.figure(figsize=(12, 6))
-#     plt.plot(data['YearQuarter'], data['AreaHarvested_log'])
-#     plt.xlabel('Year')
-#     plt.ylabel('Area Harvested')
-#     plt.title('Differenced Quarterly Area Harvested 2012-2022')
-#     plt.xticks(rotation=90)
-#     plt.show()
+with open("./ARIMA/ARIMA_AH.pkl", "rb") as f:
+    model_ah = pickle.load(f)
 
-# def check_stationarity(data):
-#     train_data = data['AreaHarvested_log'].iloc[:int(len(data) * 0.7)]
-#     # Perform the ADF test
-#     print('First ADF Test:')
-#     result = adfuller(train_data)    
-#     print('ADF Statistic:', result[0])
-#     print('p-value:', result[1])
-#     print('Critical Values:')
-#     for key, value in result[4].items():
-#         print(f'{key}:{value}')
+with open("./ARIMA/ARIMA_FP.pkl", "rb") as f:
+    model_fp = pickle.load(f)
 
-#     train_data_diff = train_data.diff().dropna()
-#     # Perform the 2nd ADF test
-#     print('\nSecond ADF Test(after differencing):')
-#     result = adfuller(train_data_diff)
-#     print('ADF Statistic:', result[0])
-#     print('p-value:', result[1])
-#     print('Critical Values:')
-#     for key, value in result[4].items():
-#         print(f'{key}:{value}')
-#     # Print ADF test results
+# Initialize Firebase app
+config = {
+    "apiKey": "AIzaSyBixtA4v5mvxKvaTU61iq9Fr2Ln2OWlf3o",
+    "authDomain": "tomatocare-78e23.firebaseapp.com",
+    "projectId": "tomatocare-78e23",
+    "storageBucket": "tomatocare-78e23.appspot.com",
+    "messagingSenderId": "437959910172",
+    "appId": "1:437959910172:web:dab8c80225929289dd90d9",
+    "databaseURL": "",
+}
 
-#     return train_data_diff
+firebase = pyrebase.initialize_app(config)
+auth = firebase.auth()
 
-# # Fit the ARIMA model
-# def fit_arima(train_data):
-#     model = ARIMA(train_data, order=(4, 1, 0))
-#     model_fit = model.fit()
-#     print(model_fit.summary())
-#     return model_fit
+# Initialize the app with the service account credentials
+cred = credentials.Certificate(
+    "tomatocare-78e23-firebase-adminsdk-by348-b01efacff5.json"
+)
+firebase_admin.initialize_app(cred)
+db = firestore.client()
 
-# # Make time series predictions
-# def make_predictions(data, model_fit):
-#     test_data = data['AreaHarvested_log'].iloc[int(len(data) * 0.7):]
-#     forecast = model_fit.forecast(steps=len(test_data))
-
-#     combined_data = pd.concat([data[['YearQuarter', 'AreaHarvested_log']], pd.Series(forecast)], axis=1)
-#     combined_data.columns = ['Year', 'Actual', 'Forecast']
-
-#     plt.figure(figsize=(12, 6))
-#     plt.plot(combined_data['Year'], combined_data['Actual'], label='Actual')
-#     plt.plot(combined_data['Year'], combined_data['Forecast'], label='Test Forecast')
-#     plt.xlabel('Year')
-#     plt.ylabel('Area Harvested')
-#     plt.title('Actual vs Test Forecast Data')
-#     plt.xticks(rotation=90)
-#     plt.legend()
-#     plt.show()
-
-#     return test_data, forecast
+# Routes
 
 
-# # Evaluate model predictions
-# def evaluate_predictions(test_data, forecast):
-#     from sklearn.metrics import mean_absolute_error, mean_absolute_percentage_error, mean_squared_error
-#     # Calculate MAE, MAPE, RMSE
-#     mae = mean_absolute_error(test_data, forecast)
-#     mape = mean_absolute_percentage_error(test_data, forecast)
-#     rmse = np.sqrt(mean_squared_error(test_data, forecast))
-    
-#     # Print the results
-#     print('\nMean Absolute Error (MAE):', mae)
-#     print('Mean Absolute Percentage Error (MAPE):', mape)
-#     print('Root Mean Squared Error (RMSE):', rmse)
+# Define the route for the home page
+@app.route("/")
+def index():
+    return render_template("index.html")
 
-# # Make actual predictions
-# def make_actual_predictions(data, model_fit, num_years):
-#     num_years = int(input('\nEnter the number of years ahead to predict: '))
 
-#     train_data = data['AreaHarvested'].iloc[:int(len(data) * 0.7)]
-#     model = ARIMA(train_data, order=(4, 1, 0))
-#     model_fit = model.fit()
+# Define the route for the forecasting page
+@app.route("/forecasting", methods=["GET", "POST"])
+def forecasting():
+    if request.method == "POST":
+        # Retrieve user input from the form
+        num_years = int(request.form["num_years"])
+        selected_option = request.form["selected_option"]
+        number = request.form.get("num_years")
 
-#     last_year = int(data['Year'].iloc[-1])
-#     last_year = last_year + 1
-#     future_years = pd.date_range(start=f'{last_year}-01-01', periods=num_years * 4, freq='Q')
-#     future_forecast = pd.Series(model_fit.forecast(steps=num_years * 4))
-#     prediction_df = pd.DataFrame({'Year': future_years.year, 'TimePeriod': future_years.quarter, 'Prediction': future_forecast})
+        if selected_option == "AreaHarvested":
+            # Step 1: Load the data
+            data = pd.read_csv("ARIMA/csv/AreaHarvested.csv")
 
-#     print('\nForecasted Future Data')
-#     print(prediction_df)
+            # Convert 'Year' column to string type
+            data["Year"] = data["Year"].astype(str)
+            data["YearQuarter"] = data["Year"] + "-" + data["TimePeriod"]
 
-#     return prediction_df
+            data["AreaHarvested_log"] = np.log(data["AreaHarvested"])
+            train_data = data["AreaHarvested_log"].iloc[: int(len(data) * 0.7)]
 
-# @app.route('/load_data')
-# def load_data_endpoint():
-#     data = load_data()
-#     return render_template('index.html', data=data)
+            # Step 3: Fit the ARIMA model
+            model = ARIMA(train_data, order=(4, 1, 0))
+            model_fit = model.fit()
 
-# @app.route('/plot_time_series')
-# def plot_time_series_endpoint():
-#     data = load_data()
-#     plot_time_series(data)
-#     return render_template('index.html')
+            # Step 4: Make time series predictions
+            test_data = data["AreaHarvested_log"].iloc[int(len(data) * 0.7) :]
+            forecast = model_fit.forecast(steps=len(test_data))
+
+            # Step 2: Fit the ARIMA modelg
+            model = ARIMA(data["AreaHarvested_log"], order=(4, 1, 0))
+            model_fit = model.fit()
+
+            combined_data = pd.concat(
+                [data[["YearQuarter", "AreaHarvested_log"]], pd.Series(forecast)],
+                axis=1,
+            )
+            combined_data.columns = ["Year", "Actual", "Forecast"]
+
+            # Fit the ARIMA model using the actual series
+            train_data = data["AreaHarvested"].iloc[: int(len(data) * 0.7)]
+            model = ARIMA(train_data, order=(4, 1, 0))
+            model_fit = model.fit()
+
+            # Step 3: Make time series predictions
+            last_year = int(data["Year"].iloc[-1])
+            last_year = last_year + 1
+            future_years = pd.date_range(
+                start=f"{last_year}-01-01", periods=num_years * 4, freq="Q"
+            )
+            forecast = pd.Series(model_fit.forecast(steps=num_years * 4).values)
+
+            # Step 4: Create a DataFrame with the predicted data
+            prediction_df = pd.DataFrame(
+                {
+                    "Year": future_years.year,
+                    "TimePeriod": future_years.quarter,
+                    "Actual": data["AreaHarvested"].values[-num_years * 4 :],
+                    "Forecast": forecast,
+                }
+            )
+
+            # Step 9: Get percentage change
+            percent_changes = []
+            start_index = 0
+            for i in range(4):
+                end_index = -(4 - i)
+                pd_change = (
+                    prediction_df["Forecast"].iloc[end_index]
+                    - prediction_df["Forecast"].iloc[start_index]
+                ) / prediction_df["Forecast"].iloc[start_index]
+                percent_changes.append(round(pd_change * 100, 2))
+                start_index += 1
+
+            # Calculate average percentage change
+            average_percent_change = sum(percent_changes) / len(percent_changes)
+
+            # Format percent changes for display
+            formatted_changes = []
+            for i in range(4):
+                quarter = i + 1
+                year_start = prediction_df["Year"].iloc[start_index - 1]
+                year_end = prediction_df["Year"].iloc[end_index]
+                formatted_changes.append(
+                    f"Q{quarter} {year_start}-{year_end}: {percent_changes[i]:.2f}%"
+                )
+
+            # Render the forecasting_results.html template with the predicted data
+            return render_template(
+                "forecasting_areaResults.html",
+                prediction_df=prediction_df.to_dict(orient="records"),
+                number=number,
+                formatted_changes=formatted_changes,
+                average_percent_change=average_percent_change,
+            )
+
+        elif selected_option == "VolumeProduction":
+            # Step 1: Load the data
+            data = pd.read_csv("ARIMA/csv/VolumeProduction.csv")
+
+            # Convert 'Year' column to string type
+            data["Year"] = data["Year"].astype(str)
+            data["YearQuarter"] = data["Year"] + "-" + data["TimePeriod"]
+
+            data["VolumeProduction_log"] = np.log(data["VolumeProduction"])
+            train_data = data["VolumeProduction_log"].iloc[: int(len(data) * 0.7)]
+
+            # Step 3: Fit the ARIMA model
+            model = ARIMA(train_data, order=(4, 1, 0))
+            model_fit = model.fit()
+
+            # Step 4: Make time series predictions
+            test_data = data["VolumeProduction_log"].iloc[int(len(data) * 0.7) :]
+            forecast = model_fit.forecast(steps=len(test_data))
+
+            # Step 2: Fit the ARIMA model
+            model = ARIMA(data["VolumeProduction_log"], order=(4, 1, 0))
+            model_fit = model.fit()
+
+            combined_data = pd.concat(
+                [data[["YearQuarter", "VolumeProduction_log"]], pd.Series(forecast)],
+                axis=1,
+            )
+            combined_data.columns = ["Year", "Actual", "Forecast"]
+
+            # Fit the ARIMA model using the actual series
+            train_data = data["VolumeProduction"].iloc[: int(len(data) * 0.7)]
+            model = ARIMA(train_data, order=(4, 1, 0))
+            model_fit = model.fit()
+
+            # Step 3: Make time series predictions
+            last_year = int(data["Year"].iloc[-1])
+            last_year = last_year + 1
+            future_years = pd.date_range(
+                start=f"{last_year}-01-01", periods=num_years * 4, freq="Q"
+            )
+            forecast = pd.Series(model_fit.forecast(steps=num_years * 4).values)
+
+            # Step 4: Create a DataFrame with the predicted data
+            prediction_df = pd.DataFrame(
+                {
+                    "Year": future_years.year,
+                    "TimePeriod": future_years.quarter,
+                    "Actual": data["VolumeProduction"].values[-num_years * 4 :],
+                    "Forecast": forecast,
+                }
+            )
+
+            # Step 9: Get percentage change
+            percent_changes = []
+            start_index = 0
+            for i in range(4):
+                end_index = -(4 - i)
+                pd_change = (
+                    prediction_df["Forecast"].iloc[end_index]
+                    - prediction_df["Forecast"].iloc[start_index]
+                ) / prediction_df["Forecast"].iloc[start_index]
+                percent_changes.append(round(pd_change * 100, 2))
+                start_index += 1
+
+            # Calculate average percentage change
+            average_percent_change = sum(percent_changes) / len(percent_changes)
+
+            # Format percent changes for display
+            formatted_changes = []
+            for i in range(4):
+                quarter = i + 1
+                year_start = prediction_df["Year"].iloc[start_index - 1]
+                year_end = prediction_df["Year"].iloc[end_index]
+                formatted_changes.append(
+                    f"Q{quarter} {year_start}-{year_end}: {percent_changes[i]:.2f}%"
+                )
+
+            # Render the forecasting_results.html template with the predicted data
+            return render_template(
+                "forecasting_volumeProductionResult.html",
+                prediction_df=prediction_df.to_dict(orient="records"),
+                number=number,
+                formatted_changes=formatted_changes,
+                average_percent_change=average_percent_change,
+            )
+
+        elif selected_option == "FarmgatePrices":
+            # Step 1: Load the data
+            data = pd.read_csv("ARIMA/csv/FarmgatePrices.csv")
+
+            # To avoid using scientific notation
+            pd.set_option("display.float_format", lambda x: "%d" % x)
+
+            # Convert 'Year' column to string type
+            data["Year"] = data["Year"].astype(str)
+            data["YearQuarter"] = data["Year"] + "-" + data["TimePeriod"]
+
+            data["FarmgatePrices"] = np.log(data["FarmgatePrices"])
+            train_data = data["FarmgatePrices"].iloc[: int(len(data) * 0.7)]
+
+            # Step 3: Fit the ARIMA model
+            model = ARIMA(train_data, order=(4, 1, 0))
+            model_fit = model.fit()
+
+            # Step 4: Make time series predictions
+            test_data = data["FarmgatePrices"].iloc[int(len(data) * 0.7) :]
+            forecast = model_fit.forecast(steps=len(test_data))
+
+            # Step 2: Fit the ARIMA model
+            model = ARIMA(data["FarmgatePrices"], order=(4, 1, 0))
+            model_fit = model.fit()
+
+            combined_data = pd.concat(
+                [data[["YearQuarter", "FarmgatePrices"]], pd.Series(forecast)],
+                axis=1,
+            )
+            combined_data.columns = ["Year", "Actual", "Forecast"]
+
+            # Fit the ARIMA model using the actual series
+            train_data = data["FarmgatePrices"].iloc[: int(len(data) * 0.7)]
+            model = ARIMA(train_data, order=(4, 1, 0))
+            model_fit = model.fit()
+
+            # Step 3: Make time series predictions
+            last_year = int(data["Year"].iloc[-1])
+            last_year = last_year + 1
+            future_years = pd.date_range(
+                start=f"{last_year}-01-01", periods=num_years * 4, freq="Q"
+            )
+            forecast = pd.Series(model_fit.forecast(steps=num_years * 4).values)
+
+            # Step 4: Create a DataFrame with the predicted data
+            prediction_df = pd.DataFrame(
+                {
+                    "Year": future_years.year,
+                    "TimePeriod": future_years.quarter,
+                    "Actual": data["FarmgatePrices"].values[-num_years * 4 :],
+                    "Forecast": forecast,
+                }
+            )
+
+            # Step 9: Get percentage change
+            percent_changes = []
+            start_index = 0
+            for i in range(4):
+                end_index = -(4 - i)
+                pd_change = (
+                    prediction_df["Forecast"].iloc[end_index]
+                    - prediction_df["Forecast"].iloc[start_index]
+                ) / prediction_df["Forecast"].iloc[start_index]
+                percent_changes.append(round(pd_change * 100, 2))
+                start_index += 1
+
+            # Calculate average percentage change
+            average_percent_change = sum(percent_changes) / len(percent_changes)
+
+            # Format percent changes for display
+            formatted_changes = []
+            for i in range(4):
+                quarter = i + 1
+                year_start = prediction_df["Year"].iloc[start_index - 1]
+                year_end = prediction_df["Year"].iloc[end_index]
+                formatted_changes.append(
+                    f"Q{quarter} {year_start}-{year_end}: {percent_changes[i]:.2f}%"
+                )
+
+            # Render the forecasting_results.html template with the predicted data
+            return render_template(
+                "forecasting_farmgateResult.html",
+                prediction_df=prediction_df.to_dict(orient="records"),
+                number=number,
+                formatted_changes=formatted_changes,
+                average_percent_change=average_percent_change,
+            )
+
+        elif selected_option == "VolumeDemand":
+            # Step 1: Load the data
+            data = pd.read_csv("ARIMA/csv/VolumeDemand.csv")
+
+            # To avoid using scientific notation
+            pd.set_option("display.float_format", lambda x: "%d" % x)
+
+            # Convert 'Year' column to string type
+            data["Year"] = data["Year"].astype(str)
+            data["YearQuarter"] = data["Year"] + "-" + data["TimePeriod"]
+
+            data["VolumeDemand"] = np.log(data["VolumeDemand"])
+            train_data = data["VolumeDemand"].iloc[: int(len(data) * 0.7)]
+
+            # Step 3: Fit the ARIMA model
+            model = ARIMA(train_data, order=(4, 1, 0))
+            model_fit = model.fit()
+
+            # Step 4: Make time series predictions
+            test_data = data["VolumeDemand"].iloc[int(len(data) * 0.7) :]
+            forecast = model_fit.forecast(steps=len(test_data))
+
+            # Step 2: Fit the ARIMA model
+            model = ARIMA(data["VolumeDemand"], order=(4, 1, 0))
+            model_fit = model.fit()
+
+            combined_data = pd.concat(
+                [data[["YearQuarter", "VolumeDemand"]], pd.Series(forecast)],
+                axis=1,
+            )
+            combined_data.columns = ["Year", "Actual", "Forecast"]
+
+            # Fit the ARIMA model using the actual series
+            train_data = data["VolumeDemand"].iloc[: int(len(data) * 0.7)]
+            model = ARIMA(train_data, order=(4, 1, 0))
+            model_fit = model.fit()
+
+            # Step 3: Make time series predictions
+            last_year = int(data["Year"].iloc[-1])
+            last_year = last_year + 1
+            future_years = pd.date_range(
+                start=f"{last_year}-01-01", periods=num_years * 4, freq="Q"
+            )
+            forecast = pd.Series(model_fit.forecast(steps=num_years * 4).values)
+
+            # Step 4: Create a DataFrame with the predicted data
+            prediction_df = pd.DataFrame(
+                {
+                    "Year": future_years.year,
+                    "TimePeriod": future_years.quarter,
+                    "Actual": data["VolumeDemand"].values[-num_years * 4 :],
+                    "Forecast": forecast,
+                }
+            )
+
+            # Step 9: Get percentage change
+            percent_changes = []
+            start_index = 0
+            for i in range(4):
+                end_index = -(4 - i)
+                pd_change = (
+                    prediction_df["Forecast"].iloc[end_index]
+                    - prediction_df["Forecast"].iloc[start_index]
+                ) / prediction_df["Forecast"].iloc[start_index]
+                percent_changes.append(round(pd_change * 100, 2))
+                start_index += 1
+
+            # Calculate average percentage change
+            average_percent_change = sum(percent_changes) / len(percent_changes)
+
+            # Format percent changes for display
+            formatted_changes = []
+            for i in range(4):
+                quarter = i + 1
+                year_start = prediction_df["Year"].iloc[start_index - 1]
+                year_end = prediction_df["Year"].iloc[end_index]
+                formatted_changes.append(
+                    f"Q{quarter} {year_start}-{year_end}: {percent_changes[i]:.2f}%"
+                )
+
+            # Render the forecasting_results.html template with the predicted data
+            return render_template(
+                "forecasting_volumeDemandResult.html",
+                prediction_df=prediction_df.to_dict(orient="records"),
+                number=number,
+                formatted_changes=formatted_changes,
+                average_percent_change=average_percent_change,
+            )
+
+    # Render the forecasting.html template for user input
+    return render_template("forecasting.html")
+
 
 # @app.route('/submit', methods=['POST'])
 # def submit(prediction_df):
@@ -150,74 +428,122 @@ import pyrebase
 #     }
 #      return render_template('index.html', forecast_results=forecast_results)
 
-from flask import Flask, render_template, request, session, redirect
 
-app = Flask(__name__,static_folder='static')
-
-config = {
-    'apiKey': "AIzaSyBixtA4v5mvxKvaTU61iq9Fr2Ln2OWlf3o",
-    'authDomain': "tomatocare-78e23.firebaseapp.com",
-    'projectId': "tomatocare-78e23",
-    'storageBucket': "tomatocare-78e23.appspot.com",
-    'messagingSenderId': "437959910172",
-    'appId': "1:437959910172:web:dab8c80225929289dd90d9",
-    'databaseURL' : "",
-  }
-
-firebase = pyrebase.initialize_app(config)
-auth = firebase.auth()
-
-app.secret_key='secret'
-
-
-@app.route('/',methods=['POST','GET'])
+# User login route
+@app.route("/login", methods=["GET", "POST"])
 def login():
-    if "user" in session:
-        return redirect('/index')
-        
-    if request.method == 'POST':
-        email = request.form.get('email')
-        password = request.form.get('password')
+    if request.method == "POST":
+        # Handle login form submission
+        email = request.form["email"]
+        password = request.form["password"]
         try:
+            # Sign in the user with email and password
             user = auth.sign_in_with_email_and_password(email, password)
-            session['user'] = email
-            return redirect('/index')
+            # Store user session data
+            session["user"] = user
+            return redirect("/")
         except:
-            return 'Failed to login' 
-    return render_template('login.html')
+            error = "Invalid email or password"
+            return render_template("login.html", error=error)
+    else:
+        # Display login form
+        return render_template("login.html")
 
-@app.route('/logout')
+
+@app.route("/logout")
 def logout():
-    session.pop('user')
-    return redirect('/login')
+    # Clear user session data
+    session.pop("user", None)
+    return redirect("/login")
 
-@app.route('/login')
-def user_login():
-    return render_template('login.html')
 
-@app.route('/index')
-def index():
-    if "user" not in session:
-        return redirect('/login')
-    return render_template('index.html')
-
-@app.route('/signup', methods=['GET', 'POST'])
+@app.route("/signup", methods=["GET", "POST"])
 def signup():
-    if request.method == 'POST':
-        try:
-            email = request.form.get('email')
-            password = request.form.get('password')
-            user = auth.create_user_with_email_and_password(email, password)
-            auth.send_email_verification(user['idToken'])
-            session['user'] = user
-            return redirect('/')
-        except Exception as e:
-            error = str(e)
-            return render_template('signup.html', error=error)
-    return render_template('signup.html')
+    if request.method == "POST":
+        # Handle signup form submission
+        email = request.form["email"]
+        password = request.form["password"]
+        username = request.form["username"]
+        # Create a new user in Firebase Authentication
+        user = auth.create_user_with_email_and_password(email, password)
+        # Store user details in Firestore database
+        db.collection("users").document(user["localId"]).set(
+            {"email": email, "name": username, "emailVerified": False}
+        )
+        # Send email verification link to the user
+        auth.send_email_verification(user["idToken"])
+        return redirect("/login")
+    else:
+        return render_template("signup.html")
 
 
-if __name__ == '__main__':
-    app.run(debug=True, host='localhost', port=5000)
+@app.route("/profile")
+def user_profile():
+    if "user" in session:
+        user = session["user"]
+        # Fetch user profile data from Firestore based on user ID
+        profile = db.collection("users").document(user["localId"]).get().to_dict()
+        return render_template("profile.html", profile=profile)
+    else:
+        return redirect("/login")
 
-#updated
+
+if __name__ == "__main__":
+    app.run()
+
+
+# @app.route('/')
+# def default_route():
+#     return render_template('login.html')
+
+# @app.route('/')
+# def home_route():
+#     return render_template('index.html')
+
+
+# @app.route('/', methods=['POST', 'GET'])
+# def login():
+#     if "user" in session:
+#         return redirect('/index')
+
+#     if request.method == 'POST':
+#         email = request.form.get('email')
+#         password = request.form.get('password')
+#         try:
+#             user = auth.sign_in_with_email_and_password(email, password)
+#             session['user'] = email
+#             return redirect('/index')
+#         except:
+#             return 'Failed to login'
+#     return render_template('login.html')
+
+
+# @app.route('/signup', methods=['GET', 'POST'])
+# def signup():
+#     if "user" in session:
+#         return redirect('/login')
+
+#     if request.method == 'POST':
+#         try:
+#             email = request.form.get('email')
+#             password = request.form.get('password')
+#             user = auth.create_user_with_email_and_password(email, password)
+#             auth.send_email_verification(user['idToken'])
+#             session['user'] = email
+#             return redirect('/login')
+#         except Exception as e:
+#             error = str(e)
+#             return render_template('signup.html', error=error)
+#     return render_template('signup.html')
+
+
+# @app.route('/index')
+# def index():
+#     if "user" not in session:
+#         return redirect('/login')
+#     return render_template('index.html')
+
+# @app.route('/logout')
+# def logout():
+#     session.pop('user')
+#     return redirect('/login')

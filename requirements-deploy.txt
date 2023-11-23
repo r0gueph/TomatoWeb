@@ -1,0 +1,7 @@
+flask
+pyrebase4
+firebase-admin
+scikit-learn
+matplotlib 
+statsmodels
+jupyter
