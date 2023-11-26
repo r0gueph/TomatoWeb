@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import pyrebase
 from firebase_admin import auth, credentials, firestore
-from flask import Flask, redirect, render_template, request, session
+from flask import Flask, flash, redirect, render_template, request, session
 from statsmodels.tsa.arima.model import ARIMA
 
 app = Flask(__name__)
@@ -414,21 +414,6 @@ def forecasting():
     return render_template("forecasting.html")
 
 
-# @app.route('/submit', methods=['POST'])
-# def submit(prediction_df):
-#     #Process the form submission and generate the results
-#      max_area = request.form.get['max_area']
-#      forecast_years = request.form.get('forecast_years')
-
-#     # Pass the results to the template for rendering
-#      forecast_results = {
-#      'max_area': max_area,
-#      'forecast_years': forecast_years,
-#      'prediction_df': prediction_df.to_dict('records')
-#     }
-#      return render_template('index.html', forecast_results=forecast_results)
-
-
 # User login route
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -436,15 +421,33 @@ def login():
         # Handle login form submission
         email = request.form["email"]
         password = request.form["password"]
+
+        # Check if email or password is empty
+        if not email or not password:
+            flash("Please enter your email and password", "error")
+            return render_template("login.html")
+
         try:
             # Sign in the user with email and password
             user = auth.sign_in_with_email_and_password(email, password)
             # Store user session data
             session["user"] = user
             return redirect("/")
-        except:
-            error = "Invalid email or password"
-            return render_template("login.html", error=error)
+        except Exception as e:
+            error_message = e.strerror
+            if "INVALID_PASSWORD" in error_message:
+                flash(
+                    "Invalid email or password. Please double-check your credentials and try again.",
+                    "error",
+                )
+            elif "EMAIL_NOT_FOUND" in error_message:
+                flash(
+                    "Invalid email or password. Please double-check your credentials and try again.",
+                    "error",
+                )
+            else:
+                flash("An error occurred", "error")
+            return render_template("login.html")
     else:
         # Display login form
         return render_template("login.html")
@@ -477,6 +480,19 @@ def signup():
         return render_template("signup.html")
 
 
+@app.route("/forgotpassword", methods=["GET", "POST"])
+def forgotpassword():
+    if request.method == "POST":
+        email = request.form["email"]
+        if email == "":
+            flash("Please enter your email address and password", "error")
+            return render_template("pseudo.html")
+        auth.send_password_reset_email(email)
+        flash("Password reset email sent", "success")
+        return redirect("/login")
+    return render_template("pseudo.html")
+
+
 @app.route("/profile")
 def user_profile():
     if "user" in session:
@@ -490,60 +506,3 @@ def user_profile():
 
 if __name__ == "__main__":
     app.run()
-
-
-# @app.route('/')
-# def default_route():
-#     return render_template('login.html')
-
-# @app.route('/')
-# def home_route():
-#     return render_template('index.html')
-
-
-# @app.route('/', methods=['POST', 'GET'])
-# def login():
-#     if "user" in session:
-#         return redirect('/index')
-
-#     if request.method == 'POST':
-#         email = request.form.get('email')
-#         password = request.form.get('password')
-#         try:
-#             user = auth.sign_in_with_email_and_password(email, password)
-#             session['user'] = email
-#             return redirect('/index')
-#         except:
-#             return 'Failed to login'
-#     return render_template('login.html')
-
-
-# @app.route('/signup', methods=['GET', 'POST'])
-# def signup():
-#     if "user" in session:
-#         return redirect('/login')
-
-#     if request.method == 'POST':
-#         try:
-#             email = request.form.get('email')
-#             password = request.form.get('password')
-#             user = auth.create_user_with_email_and_password(email, password)
-#             auth.send_email_verification(user['idToken'])
-#             session['user'] = email
-#             return redirect('/login')
-#         except Exception as e:
-#             error = str(e)
-#             return render_template('signup.html', error=error)
-#     return render_template('signup.html')
-
-
-# @app.route('/index')
-# def index():
-#     if "user" not in session:
-#         return redirect('/login')
-#     return render_template('index.html')
-
-# @app.route('/logout')
-# def logout():
-#     session.pop('user')
-#     return redirect('/login')

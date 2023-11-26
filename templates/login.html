@@ -53,6 +53,42 @@
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css"
     />
     <style>
+      /*ALERT BOX FONT*/
+      .alert {
+        padding: 20px;
+        background-color: #f44336; /* Red */
+        color: white;
+        margin-bottom: 15px;
+        border-radius: 10px;
+      }
+
+      .alert.error {
+        background-color: #f44336; /* Red */
+      }
+
+      .alert.success {
+        background-color: #4caf50; /* Green */
+      }
+
+      .alert.info {
+        background-color: #2196f3; /* Blue */
+      }
+
+      .alert.warning {
+        background-color: #ff9800; /* Orange */
+      }
+
+      .closebtn {
+        margin-left: 15px;
+        color: white;
+        font-weight: bold;
+        float: right;
+        font-size: 22px;
+        line-height: 20px;
+        cursor: pointer;
+        transition: 0.3s;
+      }
+
       /*//////////////////////////////////////////////////////////////////
 [ FONT ]*/
 
@@ -837,6 +873,17 @@
         />
       </div>
       <div class="wrap-login100 p-l-55 p-r-55 p-t-30 p-b-54">
+        {% with messages = get_flashed_messages(with_categories=true) %} {% if
+        messages %} {% for category, message in messages %}
+        <div class="alert alert-{{ category }}">
+          <span
+            class="closebtn"
+            onclick="this.parentElement.style.display='none';"
+            >&times;</span
+          >
+          {{ message }}
+        </div>
+        {% endfor %} {% endif %} {% endwith %}
         <form class="login100-form validate-form" action="/login" method="POST">
           <span class="login100-form-title p-b-49"> Login </span>
           <div
@@ -873,7 +920,12 @@
           </div>
 
           <div class="flex-col-c p-t-30">
-            <a href="/signup" class="txt2"> Sign Up </a>
+            <a href="/signup" style="text-decoration: none"
+              ><hint>Sign Up</hint></a
+            >
+            <a href="/forgotpassword" style="text-decoration: none"
+              ><hint>Forgot Password?</hint></a
+            >
           </div>
         </form>
       </div>
