@@ -146,92 +146,6 @@ def forecasting():
                 average_percent_change=average_percent_change,
             )
 
-        elif selected_option == "VolumeProduction":
-            # Step 1: Load the data
-            data = pd.read_csv("ARIMA/csv/VolumeProduction.csv")
-
-            # Convert 'Year' column to string type
-            data["Year"] = data["Year"].astype(str)
-            data["YearQuarter"] = data["Year"] + "-" + data["TimePeriod"]
-
-            data["VolumeProduction_log"] = np.log(data["VolumeProduction"])
-            train_data = data["VolumeProduction_log"].iloc[: int(len(data) * 0.7)]
-
-            # Step 3: Fit the ARIMA model
-            model = ARIMA(train_data, order=(4, 1, 0))
-            model_fit = model.fit()
-
-            # Step 4: Make time series predictions
-            test_data = data["VolumeProduction_log"].iloc[int(len(data) * 0.7) :]
-            forecast = model_fit.forecast(steps=len(test_data))
-
-            # Step 2: Fit the ARIMA model
-            model = ARIMA(data["VolumeProduction_log"], order=(4, 1, 0))
-            model_fit = model.fit()
-
-            combined_data = pd.concat(
-                [data[["YearQuarter", "VolumeProduction_log"]], pd.Series(forecast)],
-                axis=1,
-            )
-            combined_data.columns = ["Year", "Actual", "Forecast"]
-
-            # Fit the ARIMA model using the actual series
-            train_data = data["VolumeProduction"].iloc[: int(len(data) * 0.7)]
-            model = ARIMA(train_data, order=(4, 1, 0))
-            model_fit = model.fit()
-
-            # Step 3: Make time series predictions
-            last_year = int(data["Year"].iloc[-1])
-            last_year = last_year + 1
-            future_years = pd.date_range(
-                start=f"{last_year}-01-01", periods=num_years * 4, freq="Q"
-            )
-            forecast = pd.Series(model_fit.forecast(steps=num_years * 4).values)
-
-            # Step 4: Create a DataFrame with the predicted data
-            prediction_df = pd.DataFrame(
-                {
-                    "Year": future_years.year,
-                    "TimePeriod": future_years.quarter,
-                    "Actual": data["VolumeProduction"].values[-num_years * 4 :],
-                    "Forecast": forecast,
-                }
-            )
-
-            # Step 9: Get percentage change
-            percent_changes = []
-            start_index = 0
-            for i in range(4):
-                end_index = -(4 - i)
-                pd_change = (
-                    prediction_df["Forecast"].iloc[end_index]
-                    - prediction_df["Forecast"].iloc[start_index]
-                ) / prediction_df["Forecast"].iloc[start_index]
-                percent_changes.append(round(pd_change * 100, 2))
-                start_index += 1
-
-            # Calculate average percentage change
-            average_percent_change = sum(percent_changes) / len(percent_changes)
-
-            # Format percent changes for display
-            formatted_changes = []
-            for i in range(4):
-                quarter = i + 1
-                year_start = prediction_df["Year"].iloc[start_index - 1]
-                year_end = prediction_df["Year"].iloc[end_index]
-                formatted_changes.append(
-                    f"Q{quarter} {year_start}-{year_end}: {percent_changes[i]:.2f}%"
-                )
-
-            # Render the forecasting_results.html template with the predicted data
-            return render_template(
-                "forecasting_volumeProductionResult.html",
-                prediction_df=prediction_df.to_dict(orient="records"),
-                number=number,
-                formatted_changes=formatted_changes,
-                average_percent_change=average_percent_change,
-            )
-
         elif selected_option == "FarmgatePrices":
             # Step 1: Load the data
             data = pd.read_csv("ARIMA/csv/FarmgatePrices.csv")
@@ -321,93 +235,199 @@ def forecasting():
                 average_percent_change=average_percent_change,
             )
 
-        elif selected_option == "VolumeDemand":
+        elif selected_option == "VolumeDemandAndProduction":
             # Step 1: Load the data
-            data = pd.read_csv("ARIMA/csv/VolumeDemand.csv")
+            dataDemand = pd.read_csv("ARIMA/csv/VolumeDemand.csv")
+            dataProduction = pd.read_csv("ARIMA/csv/VolumeProduction.csv")
 
             # To avoid using scientific notation
             pd.set_option("display.float_format", lambda x: "%d" % x)
 
             # Convert 'Year' column to string type
-            data["Year"] = data["Year"].astype(str)
-            data["YearQuarter"] = data["Year"] + "-" + data["TimePeriod"]
+            dataDemand["Year"] = dataDemand["Year"].astype(str)
+            dataDemand["YearQuarter"] = (
+                dataDemand["Year"] + "-" + dataDemand["TimePeriod"]
+            )
+            dataProduction["Year"] = dataProduction["Year"].astype(str)
+            dataProduction["YearQuarter"] = (
+                dataProduction["Year"] + "-" + dataProduction["TimePeriod"]
+            )
 
-            data["VolumeDemand"] = np.log(data["VolumeDemand"])
-            train_data = data["VolumeDemand"].iloc[: int(len(data) * 0.7)]
+            dataDemand["VolumeDemand"] = np.log(dataDemand["VolumeDemand"])
+            train_dataDemand = dataDemand["VolumeDemand"].iloc[
+                : int(len(dataDemand) * 0.7)
+            ]
+
+            dataProduction["VolumeProduction_log"] = np.log(
+                dataProduction["VolumeProduction"]
+            )
+            train_dataProduction = dataProduction["VolumeProduction_log"].iloc[
+                : int(len(dataProduction) * 0.7)
+            ]
 
             # Step 3: Fit the ARIMA model
-            model = ARIMA(train_data, order=(4, 1, 0))
-            model_fit = model.fit()
+            modelDemand = ARIMA(train_dataDemand, order=(4, 1, 0))
+            model_fitDemand = modelDemand.fit()
+            modelProduction = ARIMA(train_dataProduction, order=(4, 1, 0))
+            model_fitProduction = modelProduction.fit()
 
             # Step 4: Make time series predictions
-            test_data = data["VolumeDemand"].iloc[int(len(data) * 0.7) :]
-            forecast = model_fit.forecast(steps=len(test_data))
+            test_dataDemand = dataDemand["VolumeDemand"].iloc[
+                int(len(dataDemand) * 0.7) :
+            ]
+            forecastDemand = model_fitDemand.forecast(steps=len(test_dataDemand))
+            test_dataProduction = dataProduction["VolumeProduction_log"].iloc[
+                int(len(dataProduction) * 0.7) :
+            ]
+            forecastProduction = model_fitProduction.forecast(
+                steps=len(test_dataProduction)
+            )
 
-            # Step 2: Fit the ARIMA model
-            model = ARIMA(data["VolumeDemand"], order=(4, 1, 0))
-            model_fit = model.fit()
+            # Step 2: Fit the ARIMA model graph
+            modelDemand = ARIMA(dataDemand["VolumeDemand"], order=(4, 1, 0))
+            model_fitDemand = modelDemand.fit()
 
-            combined_data = pd.concat(
-                [data[["YearQuarter", "VolumeDemand"]], pd.Series(forecast)],
+            modelProduction = ARIMA(
+                dataProduction["VolumeProduction_log"], order=(4, 1, 0)
+            )
+            model_fitProduction = modelProduction.fit()
+
+            combined_dataDemand = pd.concat(
+                [
+                    dataDemand[["YearQuarter", "VolumeDemand"]],
+                    pd.Series(forecastDemand),
+                ],
                 axis=1,
             )
-            combined_data.columns = ["Year", "Actual", "Forecast"]
+            combined_dataDemand.columns = ["Year", "Actual", "Forecast"]
+
+            combined_dataProduction = pd.concat(
+                [
+                    dataProduction[["YearQuarter", "VolumeProduction_log"]],
+                    pd.Series(forecastProduction),
+                ],
+                axis=1,
+            )
+            combined_dataProduction.columns = ["Year", "Actual", "Forecast"]
 
             # Fit the ARIMA model using the actual series
-            train_data = data["VolumeDemand"].iloc[: int(len(data) * 0.7)]
-            model = ARIMA(train_data, order=(4, 1, 0))
-            model_fit = model.fit()
+            train_dataDemand = dataDemand["VolumeDemand"].iloc[
+                : int(len(dataDemand) * 0.7)
+            ]
+            modelDemand = ARIMA(train_dataDemand, order=(4, 1, 0))
+            model_fitDemand = modelDemand.fit()
+
+            train_dataProduction = dataProduction["VolumeProduction"].iloc[
+                : int(len(dataProduction) * 0.7)
+            ]
+            modelProduction = ARIMA(train_dataProduction, order=(4, 1, 0))
+            model_fitProduction = modelProduction.fit()
 
             # Step 3: Make time series predictions
-            last_year = int(data["Year"].iloc[-1])
-            last_year = last_year + 1
-            future_years = pd.date_range(
-                start=f"{last_year}-01-01", periods=num_years * 4, freq="Q"
+            last_yearDemand = int(dataDemand["Year"].iloc[-1])
+            last_yearDemand = last_yearDemand + 1
+            future_yearsDemand = pd.date_range(
+                start=f"{last_yearDemand}-01-01", periods=num_years * 4, freq="Q"
             )
-            forecast = pd.Series(model_fit.forecast(steps=num_years * 4).values)
+            forecastDemand = pd.Series(
+                model_fitDemand.forecast(steps=num_years * 4).values
+            )
+
+            last_yearProduction = int(dataProduction["Year"].iloc[-1])
+            last_yearProduction = last_yearProduction + 1
+            future_yearsProduction = pd.date_range(
+                start=f"{last_yearProduction}-01-01", periods=num_years * 4, freq="Q"
+            )
+            forecastProduction = pd.Series(
+                model_fitProduction.forecast(steps=num_years * 4).values
+            )
 
             # Step 4: Create a DataFrame with the predicted data
-            prediction_df = pd.DataFrame(
+            prediction_dfDemand = pd.DataFrame(
                 {
-                    "Year": future_years.year,
-                    "TimePeriod": future_years.quarter,
-                    "Actual": data["VolumeDemand"].values[-num_years * 4 :],
-                    "Forecast": forecast,
+                    "Year": future_yearsDemand.year,
+                    "TimePeriod": future_yearsDemand.quarter,
+                    "Actual": dataDemand["VolumeDemand"].values[-num_years * 4 :],
+                    "Forecast": forecastDemand,
+                }
+            )
+
+            prediction_dfProduction = pd.DataFrame(
+                {
+                    "Year": future_yearsProduction.year,
+                    "TimePeriod": future_yearsProduction.quarter,
+                    "Actual": dataProduction["VolumeProduction"].values[
+                        -num_years * 4 :
+                    ],
+                    "Forecast": forecastProduction,
                 }
             )
 
             # Step 9: Get percentage change
-            percent_changes = []
-            start_index = 0
+            percent_changesDemand = []
+            start_indexDemand = 0
             for i in range(4):
-                end_index = -(4 - i)
-                pd_change = (
-                    prediction_df["Forecast"].iloc[end_index]
-                    - prediction_df["Forecast"].iloc[start_index]
-                ) / prediction_df["Forecast"].iloc[start_index]
-                percent_changes.append(round(pd_change * 100, 2))
-                start_index += 1
+                end_indexDemand = -(4 - i)
+                pd_changeDemand = (
+                    prediction_dfDemand["Forecast"].iloc[end_indexDemand]
+                    - prediction_dfDemand["Forecast"].iloc[start_indexDemand]
+                ) / prediction_dfDemand["Forecast"].iloc[start_indexDemand]
+                percent_changesDemand.append(round(pd_changeDemand * 100, 2))
+                start_indexDemand += 1
+
+            percent_changesProduction = []
+            start_indexProduction = 0
+            for i in range(4):
+                end_indexProduction = -(4 - i)
+                pd_changeProduction = (
+                    prediction_dfProduction["Forecast"].iloc[end_indexProduction]
+                    - prediction_dfProduction["Forecast"].iloc[start_indexProduction]
+                ) / prediction_dfProduction["Forecast"].iloc[start_indexProduction]
+                percent_changesProduction.append(round(pd_changeProduction * 100, 2))
+                start_indexProduction += 1
 
             # Calculate average percentage change
-            average_percent_change = sum(percent_changes) / len(percent_changes)
+            average_percent_changeDemand = sum(percent_changesDemand) / len(
+                percent_changesDemand
+            )
+
+            average_percent_changeProduction = sum(percent_changesProduction) / len(
+                percent_changesProduction
+            )
 
             # Format percent changes for display
-            formatted_changes = []
+            formatted_changesDemand = []
             for i in range(4):
                 quarter = i + 1
-                year_start = prediction_df["Year"].iloc[start_index - 1]
-                year_end = prediction_df["Year"].iloc[end_index]
-                formatted_changes.append(
-                    f"Q{quarter} {year_start}-{year_end}: {percent_changes[i]:.2f}%"
+                year_start = prediction_dfDemand["Year"].iloc[start_indexDemand - 1]
+                year_end = prediction_dfDemand["Year"].iloc[end_indexDemand]
+                formatted_changesDemand.append(
+                    f"Q{quarter} {year_start}-{year_end}: {percent_changesDemand[i]:.2f}%"
+                )
+
+            formatted_changesProduction = []
+            for i in range(4):
+                quarter = i + 1
+                year_start = prediction_dfProduction["Year"].iloc[
+                    start_indexProduction - 1
+                ]
+                year_end = prediction_dfProduction["Year"].iloc[end_indexProduction]
+                formatted_changesProduction.append(
+                    f"Q{quarter} {year_start}-{year_end}: {percent_changesProduction[i]:.2f}%"
                 )
 
             # Render the forecasting_results.html template with the predicted data
             return render_template(
-                "forecasting_volumeDemandResult.html",
-                prediction_df=prediction_df.to_dict(orient="records"),
+                "forecasting_volumeDemandAndProductionResult.html",
+                prediction_dfDemand=prediction_dfDemand.to_dict(orient="records"),
+                prediction_dfProduction=prediction_dfProduction.to_dict(
+                    orient="records"
+                ),
                 number=number,
-                formatted_changes=formatted_changes,
-                average_percent_change=average_percent_change,
+                formatted_changesDemand=formatted_changesDemand,
+                formatted_changesProduction=formatted_changesProduction,
+                average_percent_changeDemand=average_percent_changeDemand,
+                average_percent_changeProduction=average_percent_changeProduction,
             )
 
     # Render the forecasting.html template for user input
@@ -467,14 +487,23 @@ def signup():
         email = request.form["email"]
         password = request.form["password"]
         username = request.form["username"]
+
+        # Check if email, password, and username is empty
+        if not email or not password or not username:
+            flash("Please enter your email, password, and username", "error")
+            return render_template("signup.html")
+
         # Create a new user in Firebase Authentication
         user = auth.create_user_with_email_and_password(email, password)
+
         # Store user details in Firestore database
         db.collection("users").document(user["localId"]).set(
             {"email": email, "name": username, "emailVerified": False}
         )
+
         # Send email verification link to the user
         auth.send_email_verification(user["idToken"])
+
         return redirect("/login")
     else:
         return render_template("signup.html")
@@ -484,12 +513,25 @@ def signup():
 def forgotpassword():
     if request.method == "POST":
         email = request.form["email"]
-        if email == "":
+        if not email:
             flash("Please enter your email address and password", "error")
             return render_template("pseudo.html")
-        auth.send_password_reset_email(email)
-        flash("Password reset email sent", "success")
-        return redirect("/login")
+        try:
+            auth.send_password_reset_email(email)
+            flash(
+                "An email has been sent with instructions for resetting your password.\nThis email may take a few minutes to arrive in your inbox.",
+                "success",
+            )
+            return redirect("/login")
+        except Exception:
+            flash(
+                "An email has been sent with instructions for resetting your password.\nThis email may take a few minutes to arrive in your inbox.",
+                "success",
+            )
+            print(
+                "An exception occurred, email not found in database"
+            )  # Print error message
+            return redirect("/login")
     return render_template("pseudo.html")
 
 

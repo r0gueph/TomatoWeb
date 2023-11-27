@@ -651,6 +651,15 @@
         font-size: 2em;
         color: #dd6a6a;
       }
+
+      .percentage-container {
+        display: flex;
+        justify-content: center;
+      }
+
+      .percentage {
+        margin: 0 10px;
+      }
     </style>
   </head>
 
@@ -722,7 +731,7 @@
 
     <div class="spacer layer1"></div>
 
-    <!-- Section 5 -->
+    <!-- Section Demand -->
     <section>
       <h2>
         Here are the forecasted results of future Volume Demand in the future
@@ -731,7 +740,7 @@
       <div class="resultContainer">
         <div class="forecastedContainer">
           <!-- Display the forecasted data here -->
-          {% if prediction_df %}
+          {% if prediction_dfDemand %}
 
           <div class="tableScroll">
             <table>
@@ -743,7 +752,7 @@
                 </tr>
               </thead>
               <tbody>
-                {% for row in prediction_df %}
+                {% for row in prediction_dfDemand %}
                 <tr>
                   <td>{{ row['Year'] }}</td>
                   <td>{{ row['TimePeriod'] }}</td>
@@ -757,31 +766,31 @@
 
         <div class="graphContainer">
           <p>Graphical representation</p>
-          <div id="plot">
+          <div id="plotDemand">
             <script>
               // Convert the Flask template variable to a JavaScript variable
-              var forecastData = JSON.parse(
-                '{{ prediction_df | tojson | safe }}',
+              var forecastDataDemand = JSON.parse(
+                '{{ prediction_dfDemand | tojson | safe }}',
               );
               // Extract the years and forecasts
-              var years = forecastData.map(function (row) {
+              var yearsDemand = forecastDataDemand.map(function (row) {
                 return row.Year + '- Quarter' + row.TimePeriod;
               });
-              var forecasts = forecastData.map(function (row) {
+              var forecastsDemand = forecastDataDemand.map(function (row) {
                 return row.Forecast;
               });
 
               // Create the trace for the forecasted data
-              var trace = {
-                x: years,
-                y: forecasts,
+              var traceDemand = {
+                x: yearsDemand,
+                y: forecastsDemand,
                 type: 'scatter',
                 mode: 'lines',
                 name: 'Forecast',
               };
 
               // Create the layout for the plot
-              var layout = {
+              var layoutDemand = {
                 title: 'Actual vs Forecasted Future Data',
                 xaxis: {
                   tickangle: -90,
@@ -792,13 +801,112 @@
               };
 
               // Create the data array
-              var data = [trace];
+              var dataDemand = [traceDemand];
 
               // Create configRes for the plot Responsiveness
-              var configRes = { responsive: true };
+              var configResDemand = { responsive: true };
 
               // Plot the data
-              Plotly.newPlot('plot', data, layout, configRes);
+              Plotly.newPlot(
+                'plotDemand',
+                dataDemand,
+                layoutDemand,
+                configResDemand,
+              );
+            </script>
+
+            {% else %}
+            <p>No forecasted data available.</p>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section Production -->
+    <section>
+      <h2>
+        Here are the forecasted results of future Volume Production in the
+        future year-quarter (in hectares):
+      </h2>
+      <div class="resultContainer">
+        <div class="forecastedContainer">
+          <!-- Display the forecasted data here -->
+          {% if prediction_dfProduction %}
+
+          <div class="tableScroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Year</th>
+                  <th>Time Period</th>
+                  <th>Forecast</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in prediction_dfProduction %}
+                <tr>
+                  <td>{{ row['Year'] }}</td>
+                  <td>{{ row['TimePeriod'] }}</td>
+                  <td>{{ row['Forecast'] }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="graphContainer">
+          <p>Graphical representation</p>
+          <div id="plotProduction">
+            <script>
+              // Convert the Flask template variable to a JavaScript variable
+              var forecastDataProduction = JSON.parse(
+                '{{ prediction_dfProduction | tojson | safe }}',
+              );
+              // Extract the years and forecasts
+              var yearsProduction = forecastDataProduction.map(function (row) {
+                return row.Year + '- Quarter' + row.TimePeriod;
+              });
+              var forecastsProduction = forecastDataProduction.map(function (
+                row,
+              ) {
+                return row.Forecast;
+              });
+
+              // Create the trace for the forecasted data
+              var traceProduction = {
+                x: yearsProduction,
+                y: forecastsProduction,
+                type: 'scatter',
+                mode: 'lines',
+                name: 'Forecast',
+              };
+
+              // Create the layout for the plot
+              var layoutProduction = {
+                title: 'Actual vs Forecasted Future Data',
+                xaxis: {
+                  tickangle: -90,
+                },
+                yaxis: {
+                  title: 'Volume Production',
+                },
+              };
+
+              // Create the data array
+              var dataProduction = [traceProduction];
+
+              // Create configRes for the plot Responsiveness
+              var configResProduction = { responsive: true };
+
+              // Plot the data
+              Plotly.newPlot(
+                'plotProduction',
+                dataProduction,
+                layoutProduction,
+                configResProduction,
+              );
             </script>
 
             {% else %}
@@ -816,37 +924,53 @@
       <div class="blob-content" style="text-align: center">
         <h2>Textual representation:</h2>
         <p>
-          The Volume Demand forecast presents that the future Volume Demand in
-          Nueva Vizcaya in the next {{ number }} years:
+          The Volume Production & Demand forecast presents that the future
+          Volume Production & Demand in Nueva Vizcaya in the next {{ number }}
+          years:
         </p>
+        <div class="percentage-container">
+          <div class="percentage">
+            <h2>Demand Percentage Change:</h2>
+            <ul>
+              {% for changeDemand in formatted_changesDemand %}
+              <p>{{ changeDemand }}</p>
+              {% endfor %}
+            </ul>
+            <!-- Display the average percent change -->
+            <p>Average Percent Change: {{ average_percent_changeDemand }}%</p>
+            <!-- Conditionally display output based on the sign of the average percent change -->
+          </div>
 
-        <h2>Percentage Change:</h2>
-        <ul>
-          {% for change in formatted_changes %}
-          <p>{{ change }}</p>
-          {% endfor %}
-        </ul>
-        <!-- Display the average percent change -->
-        <p>Average Percent Change: {{ average_percent_change }}%</p>
-        <!-- Conditionally display output based on the sign of the average percent change -->
-        {% if average_percent_change > 0 %}
-        <p>
-          The average percent change is positive: It implies an expansion in the
-          overall tomato production levels. This can suggest improved farming
-          practices, increased efficiency, or larger cultivated areas. It may
-          indicate the potential for higher sales volumes and revenue for tomato
-          farmers.
-        </p>
-        {% elif average_percent_change < 0 %}
-        <p>
-          It implies a decrease in the overall production levels of tomatoes.
-          This could be due to factors such as adverse weather conditions, pest
-          and disease outbreaks, or other challenges in cultivation. It may
-          require farmers to evaluate their production methods, implement risk
-          management strategies, or explore alternative crops to maintain
-          profitability.
-        </p>
-        {% endif %}
+          <div class="percentage">
+            <h2>Production Percentage Change:</h2>
+            <ul>
+              {% for changeProduction in formatted_changesProduction %}
+              <p>{{ changeProduction }}</p>
+              {% endfor %}
+            </ul>
+            <!-- Display the average percent change -->
+            <p>
+              Average Percent Change: {{ average_percent_changeProduction }}%
+            </p>
+          </div>
+        </div>
+        <div class="conclusion">
+          <!-- Conditionally display output based on the sign of the average percent change -->
+          {% if average_percent_changeProduction > 0 %}
+          <p>
+            The positive average percent change indicates a twofold impact:
+            Firstly, it implies a rise in the prices at which farmers sell their
+            tomatoes directly at the farmgate, suggesting increased demand or
+            limited supply in the market, potentially leading to higher
+            profitability for tomato farmers. Secondly, it signals an expansion
+            in the overall tomato production levels, hinting at improved farming
+            practices, increased efficiency, or larger cultivated areas. This
+            dual effect may indicate the potential for higher sales volumes and
+            revenue for tomato farmers, fostering both improved market
+            conditions and enhanced productivity in the tomato farming sector.
+          </p>
+          {% elif average_percent_changeProduction < 0 %} {% endif %}
+        </div>
       </div>
 
       <svg

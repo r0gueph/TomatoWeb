@@ -1,5 +1,5 @@
 flask
-pyrebase4
+pyrebase4==4.0.6
 firebase-admin
 scikit-learn
 matplotlib 
